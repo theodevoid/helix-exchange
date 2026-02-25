@@ -5,6 +5,7 @@ import { DatabaseModule } from './infrastructure/database/database.module';
 import { MessagingModule } from './infrastructure/messaging/messaging.module';
 import { OutboxModule } from './infrastructure/outbox/outbox.module';
 import { HealthController } from './health/health.controller';
+import { AuthModule } from './modules/auth/auth.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { MarketsModule } from './modules/markets/markets.module';
 import { BalancesModule } from './modules/balances/balances.module';
@@ -16,6 +17,7 @@ import { LedgerModule } from './modules/ledger/ledger.module';
     DatabaseModule,
     MessagingModule,
     OutboxModule,
+    AuthModule,
     OrdersModule,
     MarketsModule,
     BalancesModule,
