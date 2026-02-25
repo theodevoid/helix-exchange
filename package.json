@@ -1,0 +1,18 @@
+{
+  "name": "helix-exchange",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "api": "pnpm --filter api dev",
+    "api:build": "pnpm --filter api build",
+    "engine": "go run ./apps/engine/cmd/engine",
+    "migrate": "pnpm --filter api exec prisma migrate dev",
+    "migrate:deploy": "pnpm --filter api exec prisma migrate deploy"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
