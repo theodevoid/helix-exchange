@@ -1,4 +1,3 @@
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -51,15 +50,18 @@ enum LedgerReferenceType {
 }
 
 model User {
-  id            String    @id
+  id            String        @id
   name          String
   email         String
-  emailVerified Boolean   @default(false)
+  emailVerified Boolean       @default(false)
   image         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
   sessions      Session[]
   accounts      Account[]
+  orders        Order[]
+  ledgers       LedgerEntry[]
+  balances      Balance[]
 
   @@unique([email])
   @@map("user")
@@ -111,4 +113,138 @@ model Verification {
 
   @@index([identifier])
   @@map("verification")
+}
+
+model Asset {
+  id        String   @id @default(uuid())
+  symbol    String   @unique
+  precision Int
+  createdAt DateTime @default(now())
+
+  balances     Balance[]
+  ledgers      LedgerEntry[]
+  baseMarkets  Market[]      @relation("BaseAsset")
+  quoteMarkets Market[]      @relation("QuoteAsset")
+}
+
+model Market {
+  id     String       @id @default(uuid())
+  symbol String       @unique
+  status MarketStatus @default(ACTIVE)
+
+  baseAssetId  String
+  quoteAssetId String
+
+  baseAsset  Asset @relation("BaseAsset", fields: [baseAssetId], references: [id])
+  quoteAsset Asset @relation("QuoteAsset", fields: [quoteAssetId], references: [id])
+
+  orders Order[]
+  trades Trade[]
+
+  createdAt DateTime @default(now())
+}
+
+model Order {
+  id       String @id @default(uuid())
+  userId   String
+  marketId String
+
+  side OrderSide
+  type OrderType
+
+  price             Decimal?
+  quantity          Decimal
+  remainingQuantity Decimal
+
+  status OrderStatus @default(NEW)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id])
+  market Market @relation(fields: [marketId], references: [id])
+
+  buyTrades  Trade[] @relation("BuyOrder")
+  sellTrades Trade[] @relation("SellOrder")
+
+  @@index([marketId])
+  @@index([userId])
+  @@index([status])
+}
+
+model Trade {
+  id       String @id @default(uuid())
+  marketId String
+
+  buyOrderId  String
+  sellOrderId String
+
+  price    Decimal
+  quantity Decimal
+
+  executedAt DateTime @default(now())
+
+  market    Market @relation(fields: [marketId], references: [id])
+  buyOrder  Order  @relation("BuyOrder", fields: [buyOrderId], references: [id])
+  sellOrder Order  @relation("SellOrder", fields: [sellOrderId], references: [id])
+
+  @@index([marketId])
+  @@index([executedAt])
+}
+
+model LedgerEntry {
+  id      String @id @default(uuid())
+  userId  String
+  assetId String
+
+  debit  Decimal @default(0)
+  credit Decimal @default(0)
+
+  referenceType LedgerReferenceType
+  referenceId   String
+
+  createdAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id])
+  asset Asset @relation(fields: [assetId], references: [id])
+
+  @@index([userId])
+  @@index([assetId])
+  @@index([referenceId])
+}
+
+model Balance {
+  userId  String
+  assetId String
+
+  available Decimal
+  locked    Decimal
+
+  user  User  @relation(fields: [userId], references: [id])
+  asset Asset @relation(fields: [assetId], references: [id])
+
+  @@id([userId, assetId])
+}
+
+model OutboxEvent {
+  id        String   @id @default(uuid())
+  topic     String
+  payload   Json
+  published Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([published])
+}
+
+model OrderEvent {
+  id        String   @id @default(uuid())
+  orderId   String
+  marketId  String
+  eventType String
+  payload   Json
+  sequence  BigInt   @default(autoincrement())
+  createdAt DateTime @default(now())
+
+  @@index([marketId])
+  @@index([sequence])
 }
