@@ -1,7 +1,7 @@
 import { Controller, Get } from '@nestjs/common';
 import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 import { PrismaService } from '../infrastructure/database/prisma.service';
-import { NatsService } from '../infrastructure/messaging/nats.service';
+import { NatsService } from '../infrastructure/messaging/nats';
 
 @Controller('health')
 export class HealthController {

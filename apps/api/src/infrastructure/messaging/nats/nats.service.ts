@@ -1,16 +1,6 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { connect, JetStreamClient, NatsConnection } from 'nats';
-
-/** Subjects that use JetStream for persistence and per-market ordering */
-const JETSTREAM_SUBJECT_PREFIXES = [
-  'orders.commands.',
-  'orders.events.',
-  'trades.events.',
-] as const;
-
-function useJetStream(topic: string): boolean {
-  return JETSTREAM_SUBJECT_PREFIXES.some((p) => topic.startsWith(p));
-}
+import { shouldUseJetStream } from './nats.constants';
 
 @Injectable()
 export class NatsService implements OnModuleInit, OnModuleDestroy {
@@ -40,7 +30,7 @@ export class NatsService implements OnModuleInit, OnModuleDestroy {
     const nc = this.connection;
     if (!nc) throw new Error('NATS not connected');
 
-    if (useJetStream(subject) && this.js) {
+    if (shouldUseJetStream(subject) && this.js) {
       await this.js.publish(subject, data);
     } else {
       nc.publish(subject, data);
