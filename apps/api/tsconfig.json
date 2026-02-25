@@ -24,6 +24,6 @@
       "@common/*": ["src/common/*"]
     }
   },
-  "include": ["src/**/*", "prisma/seed.ts"],
+  "include": ["src/**/*", "prisma/seed.ts","prisma/reconcile.ts"],
   "exclude": ["node_modules", "dist"]
 }
