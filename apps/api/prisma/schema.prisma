@@ -47,6 +47,7 @@ enum LedgerReferenceType {
   ORDER_LOCK
   ORDER_RELEASE
   FEE
+  DEPOSIT
 }
 
 model User {

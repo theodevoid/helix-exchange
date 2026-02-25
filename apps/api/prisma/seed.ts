@@ -2,7 +2,22 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
+const SYSTEM_USER_ID =
+  process.env.SYSTEM_USER_ID ?? "00000000-0000-0000-0000-000000000001";
+
 async function main() {
+  const systemUser = await prisma.user.upsert({
+    where: { id: SYSTEM_USER_ID },
+    create: {
+      id: SYSTEM_USER_ID,
+      name: "System",
+      email: "system@internal",
+      emailVerified: true,
+    },
+    update: {},
+  });
+  console.log(`System user (${systemUser.id})`);
+
   const assets = [
     { symbol: "USD", precision: 2 },
     { symbol: "IDR", precision: 0 },
