@@ -6,7 +6,11 @@
     "build": "nest build",
     "dev": "nest start --watch",
     "start": "node dist/main",
-    "start:prod": "node dist/main"
+    "start:prod": "node dist/main",
+    "db:seed": "prisma db seed"
+  },
+  "prisma": {
+    "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.3.0",
@@ -26,6 +30,7 @@
     "@types/express": "^5.0.6",
     "@types/node": "^20.11.0",
     "prisma": "^5.9.0",
+    "ts-node": "^10.9.2",
     "typescript": "^5.3.3"
   }
 }
