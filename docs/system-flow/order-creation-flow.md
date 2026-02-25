@@ -63,8 +63,8 @@ Order creation is **transactional**: the order record, fund locking, and outbox 
 
 3. **Enqueue outbox event**  
    Insert into `OutboxEvent` with:
-   - `topic`: `orders.created`
-   - `payload`: order snapshot (id, userId, marketId, side, type, price, quantity, remainingQuantity, status, createdAt)
+   - `topic`: `orders.commands.<MARKET>` (e.g. `orders.commands.ACME_USD` for market symbol ACME/USD)
+   - `payload`: order snapshot (eventType: 'created', orderId, userId, marketId, side, type, price, quantity, remainingQuantity, status, createdAt)
    - `published`: false
 
 If any step fails (e.g. insufficient balance), the entire transaction rolls back. No order, no lock, no outbox event.
@@ -85,7 +85,7 @@ If any step fails (e.g. insufficient balance), the entire transaction rolls back
    - On failure: increment `retryCount`, store `lastError`, set `lastAttemptAt` (retries with exponential backoff)
 
 3. **Delivery**  
-   Events are published to NATS subjects such as `orders.created`. Downstream services (e.g. matching engine) subscribe to these topics.
+   Events are published to JetStream subjects such as `orders.commands.ACME_USD`. Market-based subjects ensure strict FIFO ordering per market. Downstream services (e.g. matching engine) subscribe per-market for ordered processing.
 
 ---
 
@@ -125,7 +125,7 @@ If any step fails (e.g. insufficient balance), the entire transaction rolls back
                                         │
                                         ▼
                          ┌─────────────────────────────────────┐
-                         │  NATS (orders.created)              │
+                         │  NATS JetStream (orders.commands.MARKET)  │
                          │  → Matching engine / other consumers │
                          └─────────────────────────────────────┘
 ```

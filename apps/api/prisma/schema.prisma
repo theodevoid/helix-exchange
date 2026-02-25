@@ -240,6 +240,7 @@ model OutboxEvent {
 
   @@index([published])
   @@index([published, lastAttemptAt])
+  @@map("outbox_events")
 }
 
 model OrderEvent {

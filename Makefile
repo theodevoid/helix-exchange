@@ -1,4 +1,4 @@
-.PHONY: up down infra api engine migrate logs
+.PHONY: up down infra api engine migrate logs nats-setup
 
 up:
 	docker compose -f infra/docker-compose.yml up -d
@@ -20,3 +20,6 @@ migrate:
 
 logs:
 	docker compose -f infra/docker-compose.yml logs -f
+
+nats-setup:
+	pnpm --filter api exec tsx scripts/setup-nats-streams.ts

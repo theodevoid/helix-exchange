@@ -9,7 +9,8 @@
     "start:prod": "node dist/main",
     "db:seed": "prisma db seed",
     "db:reconcile": "tsx prisma/reconcile.ts",
-    "generate": "prisma generate"
+    "generate": "prisma generate",
+    "nats:setup": "tsx scripts/setup-nats-streams.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.14",

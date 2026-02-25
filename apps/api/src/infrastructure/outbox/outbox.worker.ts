@@ -21,9 +21,7 @@ export class OutboxWorker implements OnModuleInit {
     const events = await this.outbox.getUnpublishedEvents(50);
     if (events.length === 0) return;
 
-    const nc = this.nats.getConnection();
-
-    if (!nc) {
+    if (!this.nats.getConnection()) {
       this.logger.warn('NATS not connected, skipping outbox processing');
       return;
     }
@@ -35,7 +33,7 @@ export class OutboxWorker implements OnModuleInit {
           _outboxId: event.id,
         });
 
-        nc.publish(event.topic, new TextEncoder().encode(payload));
+        await this.nats.publish(event.topic, new TextEncoder().encode(payload));
         await this.outbox.markPublished(event.id);
 
         this.logger.debug(`Published event ${event.id} to ${event.topic}`);

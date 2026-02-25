@@ -4,7 +4,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { OrderSide, OrderType, Prisma } from '../../generated/prisma/client';
 import Decimal from 'decimal.js';
 import { BalanceService } from '../balances/balances.service';
-import { ORDER_CREATED_TOPIC } from './orders.constants';
+import { orderCommandSubject } from './orders.constants';
 import { CreateOrderInput } from './orders.types';
 
 @Injectable()
@@ -34,7 +34,7 @@ export class OrdersService {
 
     const market = await this.prisma.market.findUnique({
       where: { id: input.marketId },
-      select: { baseAssetId: true, quoteAssetId: true },
+      select: { baseAssetId: true, quoteAssetId: true, symbol: true },
     });
     if (!market) {
       throw new BadRequestException('Market not found');
@@ -76,7 +76,9 @@ export class OrdersService {
         orderId: order.id,
       });
 
-      await this.outbox.enqueue(tx, ORDER_CREATED_TOPIC, {
+      const subject = orderCommandSubject(market!.symbol);
+      await this.outbox.enqueue(tx, subject, {
+        eventType: 'created',
         orderId: order.id,
         userId: order.userId,
         marketId: order.marketId,

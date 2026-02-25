@@ -24,14 +24,20 @@ Production-grade mini exchange monorepo. NestJS API, Go matching engine, NATS Je
    make up
    ```
 
-3. Install dependencies and run migrations:
+3. Create NATS JetStream streams (orders.commands.*, orders.events.*, trades.events.*):
+
+   ```bash
+   make nats-setup
+   ```
+
+4. Install dependencies and run migrations:
 
    ```bash
    pnpm install
    make migrate
    ```
 
-4. Run services locally:
+5. Run services locally:
 
    ```bash
    make api      # NestJS API on http://localhost:3000
