@@ -1,7 +1,7 @@
 import { OutboxService } from '@infrastructure/outbox/outbox.service';
 import { PrismaService } from '@infrastructure/database/prisma.service';
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { OrderSide, OrderType, Prisma } from '@prisma/client';
+import { OrderSide, OrderType, Prisma } from '../../generated/prisma/client';
 import Decimal from 'decimal.js';
 import { BalanceService } from '../balances/balances.service';
 import { ORDER_CREATED_TOPIC } from './orders.constants';

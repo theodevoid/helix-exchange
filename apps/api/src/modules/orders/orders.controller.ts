@@ -5,7 +5,8 @@ import {
   HttpStatus,
   Post,
 } from '@nestjs/common';
-import { Session, UserSession } from '@thallesp/nestjs-better-auth';
+import { Session } from '@thallesp/nestjs-better-auth';
+import type { UserSession } from '@thallesp/nestjs-better-auth';
 import Decimal from 'decimal.js';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { OrdersService } from './orders.service';

@@ -1,4 +1,4 @@
-import { OrderSide, OrderType } from '@prisma/client';
+import { OrderSide, OrderType } from '../../generated/prisma/client';
 import Decimal from 'decimal.js';
 
 export type CreateOrderInput = {

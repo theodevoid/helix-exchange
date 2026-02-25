@@ -1,4 +1,4 @@
-import { LedgerReferenceType } from "@prisma/client";
+import { LedgerReferenceType } from "../../generated/prisma/client";
 import Decimal from "decimal.js";
 
 export type LedgerEntryInput = {

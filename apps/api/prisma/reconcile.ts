@@ -6,7 +6,7 @@
  * 3. Validates no drift
  */
 
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from "../src/generated/prisma/client";
 import Decimal from "decimal.js";
 
 const prisma = new PrismaClient();
@@ -115,7 +115,9 @@ async function main() {
   const recalculated = await recalculateBalancesFromLedger();
   const stored = await getStoredBalances();
 
-  console.log(`Ledger entries: recalculated ${recalculated.length} (userId, assetId) pairs`);
+  console.log(
+    `Ledger entries: recalculated ${recalculated.length} (userId, assetId) pairs`
+  );
   console.log(`Stored balances: ${stored.length} rows\n`);
 
   const drifts = findDrift(recalculated, stored);

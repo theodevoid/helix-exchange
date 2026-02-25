@@ -1,6 +1,6 @@
 import { PrismaService } from '@infrastructure/database/prisma.service';
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma } from '../../generated/prisma/client';
 import { TransactionClient } from '../../../prisma/types';
 import { INITIAL_BACKOFF_MS, MAX_BACKOFF_MS, MAX_RETRIES } from './outbox.constants';
 

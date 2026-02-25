@@ -1,7 +1,7 @@
 import { PrismaService } from "@infrastructure/database/prisma.service";
 import { BadRequestException, Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { LedgerReferenceType } from "@prisma/client";
+import { LedgerReferenceType } from "../../generated/prisma/client";
 import Decimal from "decimal.js";
 import { TransactionClient } from "../../../prisma/types";
 import { LedgerService } from "../ledger/ledger.service";

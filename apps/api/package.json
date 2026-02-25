@@ -8,10 +8,8 @@
     "start": "node dist/main",
     "start:prod": "node dist/main",
     "db:seed": "prisma db seed",
-    "db:reconcile": "npx ts-node prisma/reconcile.ts"
-  },
-  "prisma": {
-    "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
+    "db:reconcile": "tsx prisma/reconcile.ts",
+    "generate": "prisma generate"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.14",
@@ -20,14 +18,16 @@
     "@nestjs/platform-express": "^11.1.14",
     "@nestjs/schedule": "^6",
     "@nestjs/throttler": "^6",
-    "@prisma/client": "^5.9.0",
+    "@prisma/client": "^6.19.2",
     "@thallesp/nestjs-better-auth": "^2.4.0",
     "better-auth": "^1.4.19",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.3",
     "decimal.js": "^10.4.3",
+    "dotenv": "^17.3.1",
     "express": "^5.2.1",
     "nats": "^2.19.0",
+    "pg": "^8.18.0",
     "reflect-metadata": "^0.2.1",
     "rxjs": "^7.8.1"
   },
@@ -35,8 +35,9 @@
     "@nestjs/cli": "^11.0.16",
     "@types/express": "^5.0.6",
     "@types/node": "^20.11.0",
-    "prisma": "^5.9.0",
+    "prisma": "^6.19.2",
     "ts-node": "^10.9.2",
+    "tsx": "^4.21.0",
     "typescript": "^5.3.3"
   }
 }

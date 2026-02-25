@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
 }
 
 datasource db {
@@ -228,14 +229,14 @@ model Balance {
 }
 
 model OutboxEvent {
-  id           String    @id @default(uuid())
-  topic        String
-  payload      Json
-  published    Boolean   @default(false)
-  retryCount   Int       @default(0)
-  lastError    String?
+  id            String    @id @default(uuid())
+  topic         String
+  payload       Json
+  published     Boolean   @default(false)
+  retryCount    Int       @default(0)
+  lastError     String?
   lastAttemptAt DateTime?
-  createdAt    DateTime  @default(now())
+  createdAt     DateTime  @default(now())
 
   @@index([published])
   @@index([published, lastAttemptAt])

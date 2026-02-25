@@ -5,7 +5,7 @@ import {
   Matches,
   ValidateIf,
 } from 'class-validator';
-import { OrderSide, OrderType } from '@prisma/client';
+import { OrderSide, OrderType } from '../../../generated/prisma/client';
 
 const POSITIVE_DECIMAL = /^\d+(\.\d+)?$/;
 
