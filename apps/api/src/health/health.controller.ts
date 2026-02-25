@@ -1,4 +1,5 @@
 import { Controller, Get } from '@nestjs/common';
+import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 import { PrismaService } from '../infrastructure/database/prisma.service';
 import { NatsService } from '../infrastructure/messaging/nats.service';
 
@@ -10,6 +11,7 @@ export class HealthController {
   ) {}
 
   @Get()
+  @AllowAnonymous()
   async check() {
     const db = await this.checkDatabase();
     const messaging = await this.checkMessaging();

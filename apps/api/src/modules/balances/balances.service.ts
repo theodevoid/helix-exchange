@@ -3,6 +3,7 @@ import { BadRequestException, Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { LedgerReferenceType } from "@prisma/client";
 import Decimal from "decimal.js";
+import { TransactionClient } from "../../../prisma/types";
 import { LedgerService } from "../ledger/ledger.service";
 import type {
   DepositInput,
@@ -73,6 +74,50 @@ export class BalanceService {
           assetId: input.assetId,
           availableDelta: amount,
           lockedDelta: new Decimal(0),
+        },
+      ],
+    });
+  }
+
+  /**
+   * Move funds from available to locked inside an existing transaction.
+   * Use when composing with order creation in a single atomic operation.
+   */
+  async lockFundsWithTx(
+    tx: TransactionClient,
+    input: LockFundsInput
+  ): Promise<void> {
+    const amount = new Decimal(input.amount);
+
+    if (amount.lte(0)) {
+      throw new BadRequestException("Lock amount must be positive");
+    }
+
+    await this.ledger.postJournalWithTx(tx, {
+      entries: [
+        {
+          userId: input.userId,
+          assetId: input.assetId,
+          debit: amount,
+          credit: new Decimal(0),
+          referenceType: LedgerReferenceType.ORDER_LOCK,
+          referenceId: input.orderId,
+        },
+        {
+          userId: input.userId,
+          assetId: input.assetId,
+          debit: new Decimal(0),
+          credit: amount,
+          referenceType: LedgerReferenceType.ORDER_LOCK,
+          referenceId: input.orderId,
+        },
+      ],
+      balanceDeltas: [
+        {
+          userId: input.userId,
+          assetId: input.assetId,
+          availableDelta: amount.neg(),
+          lockedDelta: amount,
         },
       ],
     });

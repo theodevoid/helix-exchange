@@ -2,6 +2,7 @@ import { PrismaService } from "@infrastructure/database/prisma.service";
 import { BadRequestException, Injectable } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import Decimal from "decimal.js";
+import { TransactionClient } from "../../../prisma/types";
 import { LedgerEntryInput, PostJournalInput } from "./ledger.types";
 
 @Injectable()
@@ -22,65 +23,75 @@ export class LedgerService {
 
     await this.prisma.$transaction(
       async (tx) => {
-        await tx.ledgerEntry.createMany({
-          data: input.entries.map((entry) => ({
-            userId: entry.userId,
-            assetId: entry.assetId,
-            debit: entry.debit,
-            credit: entry.credit,
-            referenceType: entry.referenceType,
-            referenceId: entry.referenceId,
-          })),
-        });
-
-        for (const delta of input.balanceDeltas ?? []) {
-          await tx.balance.upsert({
-            where: {
-              userId_assetId: { userId: delta.userId, assetId: delta.assetId },
-            },
-            create: {
-              userId: delta.userId,
-              assetId: delta.assetId,
-              available: delta.availableDelta,
-              locked: delta.lockedDelta,
-            },
-            update: {
-              available: { increment: delta.availableDelta },
-              locked: { increment: delta.lockedDelta },
-            },
-          });
-        }
-
-        const keys = [
-          ...new Set(
-            (input.balanceDeltas ?? []).map((d) => `${d.userId}:${d.assetId}`)
-          ),
-        ];
-
-        if (keys.length > 0) {
-          const balances = await tx.balance.findMany({
-            where: {
-              OR: keys.map((k) => {
-                const [userId, assetId] = k.split(":");
-                return { userId, assetId };
-              }),
-            },
-          });
-
-          for (const b of balances) {
-            const available = new Decimal(b.available.toString());
-            const locked = new Decimal(b.locked.toString());
-
-            if (available.lt(0) || locked.lt(0)) {
-              throw new BadRequestException(
-                `Balance constraint violated: userId=${b.userId} assetId=${b.assetId} available=${available} locked=${locked}; available and locked must be >= 0`
-              );
-            }
-          }
-        }
+        await this.postJournalWithTx(tx, input);
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
     );
+  }
+
+  /**
+   * Post a journal using an existing transaction. Use when composing with other
+   * DB operations (e.g. order creation, outbox) in a single transaction.
+   */
+  async postJournalWithTx(tx: TransactionClient, input: PostJournalInput): Promise<void> {
+    this.validateBalance(input.entries);
+
+    await tx.ledgerEntry.createMany({
+      data: input.entries.map((entry) => ({
+        userId: entry.userId,
+        assetId: entry.assetId,
+        debit: entry.debit,
+        credit: entry.credit,
+        referenceType: entry.referenceType,
+        referenceId: entry.referenceId,
+      })),
+    });
+
+    for (const delta of input.balanceDeltas ?? []) {
+      await tx.balance.upsert({
+        where: {
+          userId_assetId: { userId: delta.userId, assetId: delta.assetId },
+        },
+        create: {
+          userId: delta.userId,
+          assetId: delta.assetId,
+          available: delta.availableDelta,
+          locked: delta.lockedDelta,
+        },
+        update: {
+          available: { increment: delta.availableDelta },
+          locked: { increment: delta.lockedDelta },
+        },
+      });
+    }
+
+    const keys = [
+      ...new Set(
+        (input.balanceDeltas ?? []).map((d) => `${d.userId}:${d.assetId}`)
+      ),
+    ];
+
+    if (keys.length > 0) {
+      const balances = await tx.balance.findMany({
+        where: {
+          OR: keys.map((k) => {
+            const [userId, assetId] = k.split(":");
+            return { userId, assetId };
+          }),
+        },
+      });
+
+      for (const b of balances) {
+        const available = new Decimal(b.available.toString());
+        const locked = new Decimal(b.locked.toString());
+
+        if (available.lt(0) || locked.lt(0)) {
+          throw new BadRequestException(
+            `Balance constraint violated: userId=${b.userId} assetId=${b.assetId} available=${available} locked=${locked}; available and locked must be >= 0`
+          );
+        }
+      }
+    }
   }
 
   private validateBalance(entries: LedgerEntryInput[]): void {
