@@ -1,4 +1,4 @@
-.PHONY: up down infra api engine migrate logs nats-setup
+.PHONY: up down infra api migrate logs nats-setup
 
 up:
 	docker compose -f infra/docker-compose.yml up -d
@@ -11,9 +11,6 @@ infra:
 
 api:
 	pnpm --filter api dev
-
-engine:
-	cd apps/engine && go run ./cmd/engine
 
 migrate:
 	pnpm --filter api exec prisma migrate dev
