@@ -88,4 +88,8 @@ export class OrderBook {
   getBidPrices() {
     return this.bidPrices;
   }
+
+  getBestOppositeSidePrice(side: Side): Decimal | undefined {
+    return side === "BUY" ? this.getBestAsk() : this.getBestBid();
+  }
 }
