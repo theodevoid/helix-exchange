@@ -3,13 +3,21 @@ import Decimal from "decimal.js";
 import { PriceLevel } from "../core/PriceLevel";
 import type { InternalOrder } from "../types";
 
-function createOrder(id: string, quantity: number, price: number): InternalOrder {
+function createOrder(
+  id: string,
+  quantity: number,
+  price: number
+): InternalOrder {
+  const quantityDecimal = new Decimal(quantity);
+  const priceDecimal = new Decimal(price);
+
   return {
     id,
-    quantity,
-    remainingQuantity: quantity,
-    price: new Decimal(price),
+    quantity: quantityDecimal,
+    remainingQuantity: quantityDecimal,
+    price: priceDecimal,
     side: "BUY",
+    timestamp: Date.now(),
   };
 }
 
@@ -19,7 +27,10 @@ describe("PriceLevel", () => {
       const orderA = createOrder("a", 10, 100);
       const orderB = createOrder("b", 20, 100);
       const orderC = createOrder("c", 30, 100);
-      const level = new PriceLevel(new Decimal(100), [orderA, orderB, orderC]);
+      const level = new PriceLevel(new Decimal(100));
+      level.add(orderA);
+      level.add(orderB);
+      level.add(orderC);
 
       expect(level.peek()).toBe(orderA);
       expect(level.shift()).toBe(orderA);
@@ -33,7 +44,8 @@ describe("PriceLevel", () => {
   describe("peek()", () => {
     it("does not remove the order from the level", () => {
       const order = createOrder("a", 10, 100);
-      const level = new PriceLevel(new Decimal(100), [order]);
+      const level = new PriceLevel(new Decimal(100));
+      level.add(order);
 
       expect(level.peek()).toBe(order);
       expect(level.peek()).toBe(order);
@@ -45,7 +57,9 @@ describe("PriceLevel", () => {
     it("removes orders in correct FIFO order", () => {
       const orderA = createOrder("a", 10, 100);
       const orderB = createOrder("b", 20, 100);
-      const level = new PriceLevel(new Decimal(100), [orderA, orderB]);
+      const level = new PriceLevel(new Decimal(100));
+      level.add(orderA);
+      level.add(orderB);
 
       expect(level.shift()).toBe(orderA);
       expect(level.size()).toBe(1);
@@ -54,26 +68,28 @@ describe("PriceLevel", () => {
     });
 
     it("returns undefined when level is empty", () => {
-      const level = new PriceLevel(new Decimal(100), []);
+      const level = new PriceLevel(new Decimal(100));
       expect(level.shift()).toBeUndefined();
     });
   });
 
   describe("isEmpty()", () => {
     it("returns true when level has no orders", () => {
-      const level = new PriceLevel(new Decimal(100), []);
+      const level = new PriceLevel(new Decimal(100));
       expect(level.isEmpty()).toBe(true);
     });
 
     it("returns false when level has orders", () => {
       const order = createOrder("a", 10, 100);
-      const level = new PriceLevel(new Decimal(100), [order]);
+      const level = new PriceLevel(new Decimal(100));
+      level.add(order);
       expect(level.isEmpty()).toBe(false);
     });
 
     it("returns true after all orders are shifted", () => {
       const order = createOrder("a", 10, 100);
-      const level = new PriceLevel(new Decimal(100), [order]);
+      const level = new PriceLevel(new Decimal(100));
+      level.add(order);
 
       expect(level.isEmpty()).toBe(false);
       level.shift();

@@ -25,8 +25,9 @@ export class OrderBook {
     const prices = order.side === "BUY" ? this.bidPrices : this.askPrices;
 
     let level = map.get(priceKey);
+
     if (!level) {
-      level = new PriceLevel(order.price, []);
+      level = new PriceLevel(order.price);
       map.set(priceKey, level);
       this.insertPriceSorted(prices, order.price, order.side);
     }

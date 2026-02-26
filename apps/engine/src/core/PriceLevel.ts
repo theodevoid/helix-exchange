@@ -2,10 +2,11 @@ import Decimal from "decimal.js";
 import { InternalOrder } from "../types";
 
 export class PriceLevel {
-  constructor(
-    public readonly price: Decimal,
-    public readonly orders: InternalOrder[]
-  ) {}
+  private orders: InternalOrder[];
+
+  constructor(public readonly price: Decimal) {
+    this.orders = [];
+  }
 
   add(order: InternalOrder) {
     this.orders.push(order);

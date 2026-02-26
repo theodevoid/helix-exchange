@@ -9,12 +9,16 @@ function createOrder(
   price: number,
   side: Side = "BUY"
 ): InternalOrder {
+  const quantityDecimal = new Decimal(quantity);
+  const priceDecimal = new Decimal(price);
+
   return {
     id,
-    quantity,
-    remainingQuantity: quantity,
-    price: new Decimal(price),
+    quantity: quantityDecimal,
+    remainingQuantity: quantityDecimal,
+    price: priceDecimal,
     side,
+    timestamp: Date.now(),
   };
 }
 
