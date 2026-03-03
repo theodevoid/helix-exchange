@@ -37,78 +37,91 @@ export class MatchingEngine {
       timestamp: command.timestamp,
     };
 
+    const events: EngineEvent[] = [];
     const oppSide = command.side === "BUY" ? "SELL" : "BUY";
 
-    const bestOppositeSidePrice =
-      incomingOrder.side === "BUY"
-        ? this.book.getBestAsk()
-        : this.book.getBestBid();
+    // Matching loop: iterate across price levels until filled or no more crossable levels
+    while (incomingOrder.remainingQuantity.gt(0)) {
+      const bestOppPrice =
+        incomingOrder.side === "BUY"
+          ? this.book.getBestAsk()
+          : this.book.getBestBid();
 
-    // No opposite side price. Only insert.
-    if (!bestOppositeSidePrice) {
-      this.book.add(incomingOrder);
-      return [];
+      if (!bestOppPrice) break;
+
+      // Check if prices cross:
+      // BUY crosses if incomingPrice >= bestAsk
+      // SELL crosses if incomingPrice <= bestBid
+      const crosses =
+        incomingOrder.side === "BUY"
+          ? incomingOrder.price.gte(bestOppPrice)
+          : incomingOrder.price.lte(bestOppPrice);
+
+      if (!crosses) break;
+
+      const priceLevel = this.book.getPriceLevel(oppSide, bestOppPrice);
+      if (!priceLevel) break;
+
+      // Consume orders at this level in FIFO order
+      while (incomingOrder.remainingQuantity.gt(0)) {
+        const restingOrder = priceLevel.peek();
+        if (!restingOrder) break;
+
+        const tradeQty = Decimal.min(
+          incomingOrder.remainingQuantity,
+          restingOrder.remainingQuantity
+        );
+
+        this.tradeSequence += 1;
+        const tradeId = `${this.marketId}-${this.tradeSequence}`;
+
+        const buyOrderId =
+          command.side === "BUY" ? incomingOrder.id : restingOrder.id;
+        const sellOrderId =
+          command.side === "BUY" ? restingOrder.id : incomingOrder.id;
+
+        const trade: TradeExecuted = {
+          type: "TRADE_EXECUTED",
+          marketId: this.marketId,
+          tradeId,
+          buyOrderId,
+          sellOrderId,
+          price: bestOppPrice.toString(),
+          quantity: tradeQty.toString(),
+        };
+        events.push(trade);
+
+        incomingOrder.remainingQuantity =
+          incomingOrder.remainingQuantity.minus(tradeQty);
+        restingOrder.remainingQuantity =
+          restingOrder.remainingQuantity.minus(tradeQty);
+
+        if (restingOrder.remainingQuantity.isZero()) {
+          priceLevel.shift();
+          const filledResting: OrderFilled = {
+            type: "ORDER_FILLED",
+            marketId: this.marketId,
+            orderId: restingOrder.id,
+          };
+          events.push(filledResting);
+        }
+      }
+
+      this.book.removePriceLevelIfEmpty(oppSide, bestOppPrice);
     }
 
-    // Phase 1: Exact match
-    if (!bestOppositeSidePrice.equals(price)) {
+    if (incomingOrder.remainingQuantity.isZero()) {
+      const filledIncoming: OrderFilled = {
+        type: "ORDER_FILLED",
+        marketId: this.marketId,
+        orderId: incomingOrder.id,
+      };
+      events.push(filledIncoming);
+    } else {
+      // Order has remaining quantity — rest on the book
       this.book.add(incomingOrder);
-      return [];
     }
 
-    const priceLevel = this.book.getPriceLevel(oppSide, bestOppositeSidePrice);
-
-    if (!priceLevel) {
-      this.book.add(incomingOrder);
-      return [];
-    }
-
-    const restingOrder = priceLevel.peek();
-
-    if (!restingOrder) {
-      this.book.add(incomingOrder);
-      return [];
-    }
-
-    if (!restingOrder.remainingQuantity.equals(incomingOrder.quantity)) {
-      this.book.add(incomingOrder);
-      return [];
-    }
-
-    // ----- EXECUTE TRADE -----
-    this.tradeSequence += 1;
-    const tradeId = `${this.marketId}-${this.tradeSequence}`;
-
-    const buyOrderId =
-      command.side === "BUY" ? incomingOrder.id : restingOrder.id;
-    const sellOrderId =
-      command.side === "BUY" ? restingOrder.id : incomingOrder.id;
-
-    const trade: TradeExecuted = {
-      type: "TRADE_EXECUTED",
-      marketId: this.marketId,
-      tradeId,
-      buyOrderId,
-      sellOrderId,
-      price: bestOppositeSidePrice.toString(),
-      quantity: incomingOrder.quantity.toString(),
-    };
-
-    priceLevel.shift();
-    this.book.removePriceLevelIfEmpty(oppSide, bestOppositeSidePrice);
-
-    const filledIncoming: OrderFilled = {
-      type: "ORDER_FILLED",
-      marketId: this.marketId,
-      orderId: incomingOrder.id,
-    };
-
-    const filledResting: OrderFilled = {
-      type: "ORDER_FILLED",
-      marketId: this.marketId,
-      orderId: restingOrder.id,
-    };
-
-    return [trade, filledIncoming, filledResting];
+    return events;
   }
 }
