@@ -60,6 +60,7 @@ export class MatchingEngine {
       if (!crosses) break;
 
       const priceLevel = this.book.getPriceLevel(oppSide, bestOppPrice);
+
       if (!priceLevel) break;
 
       // Consume orders at this level in FIFO order
