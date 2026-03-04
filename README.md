@@ -1,11 +1,10 @@
 # Helix Exchange
 
-Production-grade mini exchange monorepo. NestJS API, Go matching engine, NATS JetStream, PostgreSQL, Prisma.
+Production-grade mini exchange monorepo. NestJS API, Typescript matching engine, NATS JetStream, PostgreSQL, Prisma.
 
 ## Prerequisites
 
 - **Node.js** 20+
-- **Go** 1.22+
 - **pnpm** 8+
 - **Docker** (for Postgres + NATS)
 
@@ -69,7 +68,6 @@ helix-exchange/
 ## Development
 
 - **API**: `make api` or `pnpm --filter api dev`
-- **Engine**: `make engine` or `cd apps/engine && go run ./cmd/engine`
 - **Database migrations**: `make migrate`
 - **Docker logs**: `make logs`
 
