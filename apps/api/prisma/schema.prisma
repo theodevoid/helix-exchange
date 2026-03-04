@@ -1,14 +1,73 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider     = "prisma-client"
+  output       = "../generated/prisma"
+  moduleFormat = "cjs"
 }
 
 datasource db {
   provider = "postgresql"
+  url = env("DATABASE_URL")
+}
+
+model accounts {
+  id        String     @id
+  createdAt DateTime   @default(now())
+  balances  balances[]
+  orders    orders[]
+}
+
+model balances {
+  id        String   @id
+  accountId String
+  asset     String
+  available Decimal  @db.Decimal(30, 10)
+  locked    Decimal  @db.Decimal(30, 10)
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+  accounts  accounts @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, asset])
+  @@index([accountId])
+}
+
+model orders {
+  id        String      @id
+  accountId String
+  marketId  String
+  side      OrderSide
+  price     Decimal     @db.Decimal(30, 10)
+  quantity  Decimal     @db.Decimal(30, 10)
+  remaining Decimal     @db.Decimal(30, 10)
+  status    OrderStatus @default(OPEN)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime
+  accounts  accounts    @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+  @@index([marketId])
+  @@index([status])
+}
+
+model outbox {
+  id          String    @id
+  eventType   String
+  payload     Json
+  published   Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  publishedAt DateTime?
+
+  @@index([createdAt])
+  @@index([published])
+}
+
+enum OrderSide {
+  BUY
+  SELL
+}
+
+enum OrderStatus {
+  OPEN
+  PARTIALLY_FILLED
+  FILLED
+  CANCELLED
 }
