@@ -24,8 +24,11 @@ export class MatchingEngine {
     const price = new Decimal(command.price);
     const quantity = new Decimal(command.quantity);
 
-    if (price.lte(0) || quantity.lte(0)) {
-      return [];
+    if (quantity.lte(0)) {
+      throw new Error("Invalid quantity");
+    }
+    if (price.lte(0)) {
+      throw new Error("Invalid price");
     }
 
     const incomingOrder: InternalOrder = {
