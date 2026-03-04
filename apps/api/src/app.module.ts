@@ -1,11 +1,18 @@
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { OrdersModule } from './orders/orders.module';
-import { PrismaModule } from './prisma/prisma.module';
+import { NatsModule } from './infra/nats/nats.module';
+import { OutboxPublisherModule } from './infra/outbox/outbox-publisher.module';
+import { PrismaModule } from './infra/prisma/prisma.module';
+import { OrdersModule } from './modules/orders/orders.module';
 
 @Module({
-  imports: [PrismaModule, OrdersModule],
+  imports: [
+    PrismaModule,
+    NatsModule,
+    OutboxPublisherModule,
+    OrdersModule,
+  ],
   controllers: [AppController],
   providers: [AppService],
 })

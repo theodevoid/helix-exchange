@@ -1,5 +1,5 @@
 import { IsEnum, IsString, IsUUID, Matches } from 'class-validator';
-import { OrderSide } from '../../../generated/prisma/enums';
+import { OrderSide } from '../../../../generated/prisma/enums';
 
 const DECIMAL_PATTERN = /^\d+(\.\d+)?$/;
 

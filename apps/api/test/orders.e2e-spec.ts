@@ -5,8 +5,11 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { randomUUID } from 'crypto';
-import { AppModule } from '../src/app.module';
-import { PrismaService } from '../src/prisma/prisma.service';
+import { connect, StringCodec } from 'nats';
+import { AppModule } from '@/app.module';
+import { PrismaService } from '@/infra/prisma/prisma.service';
+import { OutboxPublisherService } from '@/infra/outbox/outbox-publisher.service';
+import { NatsService } from '@/infra/nats/nats.service';
 
 describe('Orders (e2e)', () => {
   let app: INestApplication<App>;
@@ -254,6 +257,318 @@ describe('Orders (e2e)', () => {
       });
 
       await cleanup(accountId);
+    });
+  });
+
+  describe('Phase 2 — Outbox Publisher', () => {
+    describe('Test 1 — Outbox Event Gets Published', () => {
+      it('publishes event to NATS and marks published', async () => {
+        const accountId = randomUUID();
+        await createAccountWithBalance(accountId, 'USDT', 10000, 0);
+
+        const res = await request(app.getHttpServer())
+          .post('/orders')
+          .send({
+            accountId,
+            marketId: 'BTC_USDT',
+            side: 'BUY',
+            price: '1000',
+            quantity: '2',
+          })
+          .expect(201);
+
+        const orderId = (res.body as { id: string }).id;
+
+        const outboxBefore = await prisma.outbox.findFirst({
+          where: { eventType: 'OrderPlaced' },
+        });
+        expect(outboxBefore?.published).toBe(false);
+
+        const publisher = app.get(OutboxPublisherService);
+
+        const received: string[] = [];
+        const nc = await connect({
+          servers: process.env.NATS_URL ?? 'nats://localhost:4222',
+        });
+        const sc = StringCodec();
+        const sub = nc.subscribe('orders.placed');
+        (async () => {
+          for await (const msg of sub) {
+            received.push(sc.decode(msg.data));
+          }
+        })();
+
+        await publisher.poll();
+
+        await new Promise((r) => setTimeout(r, 100));
+        sub.unsubscribe();
+        await nc.close();
+
+        const outboxAfter = await prisma.outbox.findFirst({
+          where: { id: outboxBefore!.id },
+        });
+        expect(outboxAfter?.published).toBe(true);
+        expect(outboxAfter?.publishedAt).toBeDefined();
+
+        expect(received.length).toBe(1);
+        const event = JSON.parse(received[0]!);
+        expect(event).toMatchObject({
+          type: 'OrderPlaced',
+          data: {
+            orderId,
+            accountId,
+            marketId: 'BTC_USDT',
+            side: 'BUY',
+            price: '1000',
+            quantity: '2',
+          },
+        });
+
+        await cleanup(accountId);
+      });
+    });
+
+    describe('Test 2 — Multiple Events Maintain Order', () => {
+      it('publishes events in created_at order', async () => {
+        const events = [
+          { id: randomUUID(), seq: 1 },
+          { id: randomUUID(), seq: 2 },
+          { id: randomUUID(), seq: 3 },
+        ];
+
+        for (const e of events) {
+          await prisma.outbox.create({
+            data: {
+              id: e.id,
+              eventType: 'OrderPlaced',
+              payload: {
+                id: e.id,
+                accountId: 'test',
+                marketId: 'BTC_USDT',
+                side: 'BUY',
+                price: '1000',
+                quantity: '1',
+                seq: e.seq,
+              },
+              published: false,
+            },
+          });
+        }
+
+        const received: string[] = [];
+        const nc = await connect({
+          servers: process.env.NATS_URL ?? 'nats://localhost:4222',
+        });
+        const sc = StringCodec();
+        const sub = nc.subscribe('orders.placed');
+        (async () => {
+          for await (const msg of sub) {
+            received.push(sc.decode(msg.data));
+          }
+        })();
+
+        const publisher = app.get(OutboxPublisherService);
+        await publisher.poll();
+
+        await new Promise((r) => setTimeout(r, 100));
+        sub.unsubscribe();
+        await nc.close();
+
+        expect(received.length).toBe(3);
+        const orderIds = received.map(
+          (r) => (JSON.parse(r) as { data: { orderId?: string } }).data.orderId,
+        );
+        expect(orderIds).toEqual([events[0]!.id, events[1]!.id, events[2]!.id]);
+
+        await prisma.outbox.deleteMany({ where: { eventType: 'OrderPlaced' } });
+      });
+    });
+
+    describe('Test 3 — Failed Publish Retries', () => {
+      it('does not mark published on NATS failure, retries next poll', async () => {
+        const accountId = randomUUID();
+        await createAccountWithBalance(accountId, 'USDT', 10000, 0);
+
+        const failingNats: NatsService = {
+          publish: () => {
+            throw new Error('NATS unavailable');
+          },
+        } as NatsService;
+
+        const customModule = await Test.createTestingModule({
+          imports: [AppModule],
+        })
+          .overrideProvider(NatsService)
+          .useValue(failingNats)
+          .compile();
+
+        const customApp = customModule.createNestApplication();
+        customApp.useGlobalPipes(
+          new ValidationPipe({
+            whitelist: true,
+            transform: true,
+            forbidNonWhitelisted: true,
+          }),
+        );
+        await customApp.init();
+
+        await request(customApp.getHttpServer())
+          .post('/orders')
+          .send({
+            accountId,
+            marketId: 'BTC_USDT',
+            side: 'BUY',
+            price: '1000',
+            quantity: '1',
+          })
+          .expect(201);
+
+        const outboxEvent = await prisma.outbox.findFirst({
+          where: { eventType: 'OrderPlaced' },
+        });
+        expect(outboxEvent?.published).toBe(false);
+
+        const publisher = customApp.get(OutboxPublisherService);
+        await publisher.poll();
+
+        const stillUnpublished = await prisma.outbox.findFirst({
+          where: { id: outboxEvent!.id },
+        });
+        expect(stillUnpublished?.published).toBe(false);
+
+        await customApp.close();
+
+        const realPublisher = app.get(OutboxPublisherService);
+        await realPublisher.poll();
+
+        const finallyPublished = await prisma.outbox.findFirst({
+          where: { id: outboxEvent!.id },
+        });
+        expect(finallyPublished?.published).toBe(true);
+
+        await cleanup(accountId);
+      });
+    });
+
+    describe('Test 4 — Worker Handles Batch Publishing', () => {
+      it('first poll publishes 5, second poll publishes remaining', async () => {
+        const customModule = await Test.createTestingModule({
+          imports: [AppModule],
+        })
+          .overrideProvider(OutboxPublisherService)
+          .useFactory({
+            factory: (prisma: PrismaService, nats: NatsService) =>
+              new OutboxPublisherService(prisma, nats, { batchSize: 5 }),
+            inject: [PrismaService, NatsService],
+          })
+          .compile();
+
+        const customApp = customModule.createNestApplication();
+        customApp.useGlobalPipes(
+          new ValidationPipe({
+            whitelist: true,
+            transform: true,
+            forbidNonWhitelisted: true,
+          }),
+        );
+        await customApp.init();
+
+        await prisma.outbox.deleteMany({});
+
+        for (let i = 0; i < 10; i++) {
+          await prisma.outbox.create({
+            data: {
+              id: randomUUID(),
+              eventType: 'OrderPlaced',
+              payload: {
+                id: randomUUID(),
+                accountId: 'test',
+                marketId: 'BTC_USDT',
+                side: 'BUY',
+                price: '1000',
+                quantity: '1',
+                seq: i,
+              },
+              published: false,
+            },
+          });
+        }
+
+        const received: string[] = [];
+        const nc = await connect({
+          servers: process.env.NATS_URL ?? 'nats://localhost:4222',
+        });
+        const sc = StringCodec();
+        const sub = nc.subscribe('orders.placed');
+        (async () => {
+          for await (const msg of sub) {
+            received.push(sc.decode(msg.data));
+          }
+        })();
+
+        const publisher = customApp.get(OutboxPublisherService);
+        await publisher.poll();
+        expect(received.length).toBe(5);
+
+        await publisher.poll();
+        expect(received.length).toBe(10);
+
+        sub.unsubscribe();
+        await nc.close();
+        await customApp.close();
+
+        await prisma.outbox.deleteMany({});
+      });
+    });
+
+    describe('Test 5 — Published Events Not Reprocessed', () => {
+      it('never picks up events with published=true', async () => {
+        const eventId = randomUUID();
+        await prisma.outbox.create({
+          data: {
+            id: eventId,
+            eventType: 'OrderPlaced',
+            payload: {
+              id: randomUUID(),
+              accountId: 'test',
+              marketId: 'BTC_USDT',
+              side: 'BUY',
+              price: '1000',
+              quantity: '1',
+            },
+            published: true,
+            publishedAt: new Date(),
+          },
+        });
+
+        const publisher = app.get(OutboxPublisherService);
+        await publisher.poll();
+
+        const received: string[] = [];
+        const nc = await connect({
+          servers: process.env.NATS_URL ?? 'nats://localhost:4222',
+        });
+        const sc = StringCodec();
+        const sub = nc.subscribe('orders.placed');
+        (async () => {
+          for await (const msg of sub) {
+            received.push(sc.decode(msg.data));
+          }
+        })();
+
+        await new Promise((r) => setTimeout(r, 200));
+        sub.unsubscribe();
+        await nc.close();
+
+        expect(received.length).toBe(0);
+
+        const event = await prisma.outbox.findUnique({
+          where: { id: eventId },
+        });
+        expect(event?.published).toBe(true);
+
+        await prisma.outbox.deleteMany({ where: { id: eventId } });
+      });
     });
   });
 });

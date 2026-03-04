@@ -3,8 +3,8 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { OrderSide, OrderStatus } from '../../generated/prisma/enums';
-import { PrismaService } from '../prisma/prisma.service';
+import { OrderSide, OrderStatus } from '../../../generated/prisma/enums';
+import { PrismaService } from '@/infra/prisma/prisma.service';
 import type { CreateOrderDto } from './dto/create-order.dto';
 
 const MARKET_ID_REGEX = /^[A-Z0-9]+_[A-Z0-9]+$/;
